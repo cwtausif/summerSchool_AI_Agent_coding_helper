@@ -1,174 +1,157 @@
 # 🧠 Local AI Coding Agent — Workshop Primer
 
-This document sets the stage for the workshop. It explains how large language models (LLMs), prompt framing, and local agents can work together to create a **project-specific AI code assistant**.
+This document introduces the **practical steps** for building your own **local AI coding assistant**. You will create a **project-specific AI agent** that runs entirely offline, uses **local models**, and understands the **structure of your code projects**.
 
 We focus on:
 
-- 🔧 Practical use of local LLMs (like Mistral)
-- 📁 Framing per-project context
-- 🧠 Optional fine-tuning later
-- 📦 Efficient memory and reasoning via lightweight DB
+- 🔧 Using local LLMs (like Mistral via `llama.cpp`)
+- 📁 Providing **per-project awareness** via folder summaries
+- 🧠 Building project-level memory with SQLite
+- 💻 Offline operation — no external API dependencies
 
 ---
 
 ## 🚀 What Are We Building?
 
-An **offline local agent** that:
+An **offline coding agent** that:
 
-1. Loads a code project (or workspace)
-2. Builds a frame (prompt) from metadata + history
-3. Interacts with the developer to:
+1. Loads a code project
 
-   - Offer documentation
-   - Suggest refactoring
-   - Comment the code
-   - Spot missing structure or logic
+2. Scans the project folder (structure + key files)
 
-4. Stores its interactions and insights for future sessions
+3. Builds smart prompts from history and project summaries
 
-Later:
+4. Answers your questions about your project:
 
-- That memory can train the model (fine-tune)
-- The project evolves — the assistant evolves
+   - Explains code structure
+   - Suggests improvements
+   - Helps write documentation
+   - Discusses code logic
 
----
-
-## 🔍 What's an LLM Really Doing?
-
-> Think of an LLM as **a huge spreadsheet of probabilities**.
-
-When trained, it learns from trillions of examples:
-
-- Programming patterns
-- Syntax
-- Comments
-- File structures
-
-It doesn’t "understand" code like a human does. It:
-
-- Predicts next tokens (text, code)
-- Uses patterns it has seen before
-
-But when well-prompted, it behaves like an intelligent collaborator.
+5. Stores prompt history in a local database (SQLite)
 
 ---
 
-## 🔁 Prompt Framing vs. Fine-Tuning
+## 🔍 What is an LLM Really Doing?
 
-| Feature        | Prompt Framing                       | Fine-Tuning                      |
-| -------------- | ------------------------------------ | -------------------------------- |
-| 📄 What it is  | Instructions + history during run    | Model trained on specific data   |
-| ⚙️ When used   | Every time you call the model        | One-time training, re-used often |
-| 🔄 Editable?   | Yes, easy to modify live             | No, needs retraining             |
-| 🧠 Best for    | Quick tasks, sessions, memory frames | Company/project-style adaptation |
-| ⏱️ Time to use | Seconds                              | Hours                            |
-| 🔧 Requires    | None (optional DB)                   | Data + compute                   |
+> Think of a local LLM as **a fast autocomplete with memory tricks**.
+
+It:
+
+- Predicts next tokens based on huge datasets
+- Sees common patterns in code, comments, and file layouts
+- Doesn’t “understand” code — but often **reconstructs patterns** effectively
+
+In this workshop, you’ll **guide it with project structure** and recent prompt history to make it more accurate.
 
 ---
 
-## 🗂️ Local Agent Flow (With Framing)
+## 🔁 Prompt Framing (No Fine-Tuning)
+
+| Feature       | Prompt Framing                          | Fine-Tuning                     |
+| ------------- | --------------------------------------- | ------------------------------- |
+| 📄 What it is | Smart instructions + context at runtime | Offline model retraining        |
+| ✅ We Use?    | ✅ Yes — easy to modify and test        | ❌ Not covered in this workshop |
+| 🧠 Why Useful | Adapts model to project-specific tasks  | Changes model permanently       |
+
+---
+
+## 📂 Local Agent Flow
 
 ```text
-User's Dev Folder
+Your Dev Folder
 │
-├── Project A
-│   └── src/, docs/, README.md, .git
-│
-└── Project B
-    └── app/, utils/, notes.md
+└── Project A
+    ├── src/, README.md, Dockerfile
+    └── .git
 ```
 
-1. **User launches the local agent**
-2. Agent asks: _"Which project?"_
-3. Agent parses:
+1. You run the local agent
+
+2. Agent asks: _“Which project?”_
+
+3. Agent scans:
 
    - Folder structure
-   - Git activity
-   - Languages + style
+   - Key source/config files
 
-4. DB lookup: _"Have we seen this project before?"_
+4. Builds a **system prompt** using the project structure
 
-   - Yes: Load frame
-   - No: Ask framing questions
+5. Logs prompt/answer history in local SQLite DB
+
+6. Replies to your queries about the project
 
 ---
 
-## 🧠 What is a Frame?
+## 🧠 What is a Project Summary?
 
-> A **frame** is a reusable summary of what the AI should focus on.
+> It’s a **lightweight description** of your project, generated by the AI.
 
-For example:
-
-```json
-{
-  "project": "MyApp",
-  "type": "Python Flask API",
-  "style": "Google docstring format",
-  "focus": ["modularization", "comments", "tests"],
-  "recent_actions": ["added auth layer"]
-}
-```
-
-This gets turned into a **prompt** for the model:
+Example:
 
 ```
-You are reviewing a Flask API named MyApp.
-Use Google-style comments. Focus on test coverage and modular structure.
-Recent work: added auth layer.
+📁 src/: main.py, utils.py
+📄 requirements.txt, Dockerfile
+
+Summary: A Python microservice using FastAPI and Docker.
 ```
+
+The agent **generates this automatically** by reading your folder contents.
 
 ---
 
 ## 🛠️ Local Stack Overview
 
-| Component                      | Description                         |
-| ------------------------------ | ----------------------------------- |
-| `llama.cpp`                    | Engine to run GGUF model (Mistral)  |
-| GGUF Model                     | Quantized Mistral 7B (`Q4`, `Q6`)   |
-| Python Script                  | Agent logic + conversation loop     |
-| Local DB (e.g. TinyDB, SQLite) | Project memory store                |
-| (Optional) Online API          | Compare answers (Claude, GPT, etc.) |
+| Component           | Description                          |
+| ------------------- | ------------------------------------ |
+| `llama.cpp`         | Runs the Mistral model locally       |
+| GGUF Model (Q6/Q8)  | Efficient quantized LLM              |
+| Python Agent Script | Project-aware AI agent logic         |
+| SQLite Database     | Stores history and project summaries |
 
 ---
 
-## 🔍 Advanced: Fine-Tuning Later
+## ✅ Why It Matters
 
-If students want to go further, you can fine-tune:
-
-1. Collect full DB logs of conversations
-2. Clean + reformat into training pairs
-3. Use `QLoRA` or `PEFT` to fine-tune locally or on Colab
-4. Swap the base model with the tuned one
+- 🟡 Works fully offline, respects project privacy
+- 🧠 Adapts to any codebase without internet access
+- 🔍 Acts as a **context-aware coding helper**
+- 🚀 Works on your laptop without GPU dependencies
 
 ---
 
-## ✅ Why This Is Valuable in a Company
+## Workshop Roadmap
 
-- 🧱 Works offline with private code
-- 📚 Teaches real-world patterns (Git, linting, docs)
-- 🤖 Custom to each developer/project
-- 🔐 No copy/paste into ChatGPT = safer
-
----
-
-## Next Steps in the Workshop
-
-1. Setup LLM locally (Mac, Windows, Linux)
-2. Test prompt-based interaction (fiction assistant)
-3. Switch to coding-focused agent
-4. Add framing & memory per project
-5. (Optional) compare to online model evaluation
+1. ✅ Install `llama.cpp` and Mistral GGUF model
+2. ✅ Test prompt-based model responses
+3. ✅ Build Python agent to select a project
+4. ✅ Add automatic project summarization
+5. ✅ Store project context and prompt history
+6. ✅ Query the LLM with project-aware prompts
 
 ---
 
-## 🧠 Closing Thoughts
+## 🧠 Final Outcome
 
-> Reasoning emerges from **context** + **constraints**.
+By the end of this workshop, you’ll have a:
 
-This workshop helps students:
+- **Project-specific coding assistant**, offline and personal
+- **Database of project memory**, reusable across sessions
+- **Foundational skillset** to expand AI tools in your own codebase
 
-- Control their own tooling
-- Think modularly (code, prompts, storage)
-- Build ethically aware, helpful agents
+---
 
-We now move to hands-on scripting to shape the actual assistant.
+## 📝 Optional Next Steps After the Workshop
+
+- Expand the agent with Git commit parsing
+- Customize prompt strategies
+- Connect to remote LLM APIs (Claude, GPT-4) for comparisons
+- Explore fine-tuning options (outside this course scope)
+
+---
+
+## 💡 Summary
+
+This workshop is about **practical AI coding tools** — no heavy infrastructure, no cloud dependencies — just your machine, your code, and your own AI assistant.
+
+---
